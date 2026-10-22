@@ -5,7 +5,19 @@
   "workdays": [],
   "memory_directory": "data/memory",
   "forgetting_gamma": 0.9,
+  "reflection": {
+    "enabled": false,
+    "monthly_budget_usd": 1,
+    "max_input_tokens": 8000,
+    "max_output_tokens": 2000
+  },
   "thermal_rooms": {},
+  "jev_policy": {
+    "enabled": false,
+    "model_directory": "models/jev-int8",
+    "validation_manifest": null,
+    "shadow_manifest": null
+  },
   "absence_costs": {},
   "ha_url": "http://homeassistant.local:8123",
   "database": "data/moqi.sqlite3",

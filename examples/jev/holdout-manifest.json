@@ -1,0 +1,8 @@
+{
+  "schema": "moqi.jev-holdout.v1",
+  "frozen_before_template_tuning": true,
+  "sha256": "511a2b8313b3167c13ee56687b68532f7bbc48f24e43095696cfe39f7c5662d6",
+  "cases": 30,
+  "supported": 20,
+  "clarification": 10
+}

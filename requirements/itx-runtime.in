@@ -1,0 +1,8 @@
+# Linux x86_64 / Python 3.13 inference runtime; no torch or conversion tools.
+websockets==17.3
+tzdata==2026.5
+PyYAML==6.0.3
+onnxruntime==1.31.0
+tokenizers==0.23.3
+huggingface-hub==2.2.0
+numpy==2.5.4

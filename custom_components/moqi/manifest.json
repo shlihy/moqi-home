@@ -1,0 +1,12 @@
+{
+  "domain": "moqi",
+  "name": "Moqi",
+  "version": "0.5.0",
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/wenshanvincent-creator/moqi-home",
+  "codeowners": ["@wenshanvincent-creator"],
+  "iot_class": "local_push",
+  "integration_type": "service",
+  "requirements": []
+}

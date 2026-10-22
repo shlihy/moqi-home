@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "dataset_id": "REPLACE_WITH_INDEPENDENT_DATASET_ID",
+  "labels_from": "human_review",
+  "cases_file": "validation.jsonl",
+  "sha256": null,
+  "frozen_at": null
+}

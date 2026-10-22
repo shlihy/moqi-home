@@ -103,6 +103,8 @@ def world_models(store,config,asof):
     absence=optimal_absence(durations,float(costs.get('regret',0)),float(costs.get('waste_per_minute',0)))
     put(store,'memory_models',dict(absence or {},id='absence',status='fitted' if absence and len(durations)>=4 else 'needs_observations_and_costs'))
     preferences=defaultdict(list)
+    # These are regenerated empirical models; explicit statements live separately.
+    store.db.execute("DELETE FROM memory_models WHERE id LIKE 'preference:%'")
     for r in human_actions(store,asof):
         value=event_context(store,r)
         if value['property']=='temperature' and number(value['target']) is not None and r['new_state'] in {'heat','cool'}:
@@ -126,17 +128,34 @@ def preheat(store,config,room,at,indoor,outdoor,target):
                 heating_minutes=duration,start_minutes=arrival['quantile20_minutes']-duration)
 
 
-def constraint(store,config,entity,actions,scope,reason,source,at):
-    initialize(store)
+def constraint_value(config,entity,actions,scope,reason,source,at,*,valid_from=None,expires_at=None):
+    from .constraint_scopes import SCOPES
     if entity not in config['entities'] or config['entities'][entity]['role']!='actuator': raise ValueError('Constraint needs an allowlisted actuator')
-    if source not in {'app','voice'} or scope not in {'always','night'} or not reason.strip(): raise ValueError('Invalid constraint source/scope/reason')
+    if source not in {'app','voice'} or scope not in SCOPES or not reason.strip(): raise ValueError('Invalid constraint source/scope/reason')
     if not actions or not set(actions)<={'turn_on','turn_off','set_temperature','set_hvac_mode'}: raise ValueError('Unsupported action')
     value=dict(id=identity([entity,sorted(actions),scope]),entity_id=entity,deny_actions=sorted(actions),scope=scope,
                reason=reason,source=source,created_at=at.isoformat(),active=True)
+    if valid_from is not None:
+        value['valid_from']=dt(valid_from).isoformat()
+    if scope=='temporary':
+        if expires_at is None: raise ValueError('A temporary constraint needs expires_at')
+        value['valid_from']=dt(valid_from or at.isoformat()).isoformat()
+        value['expires_at']=dt(expires_at).isoformat()
+        if dt(value['expires_at'])<=dt(value['valid_from']): raise ValueError('Constraint expiry must follow its start')
+        value['id']=identity([entity,sorted(actions),scope,value['valid_from'],value['expires_at']])
+    elif expires_at is not None:
+        raise ValueError('Only temporary constraints have expires_at')
+    return value
+
+
+def constraint(store,config,entity,actions,scope,reason,source,at,*,valid_from=None,expires_at=None):
+    initialize(store)
+    value=constraint_value(config,entity,actions,scope,reason,source,at,
+                           valid_from=valid_from,expires_at=expires_at)
     current=store.db.execute('SELECT body FROM memory_constraints WHERE id=?',(value['id'],)).fetchone()
     if current:
         prior=json.loads(current[0]); value['created_at']=prior['created_at']
-        if all(prior.get(k)==value[k] for k in ('entity_id','deny_actions','scope','reason','active')): return prior
+        if all(prior.get(k)==value.get(k) for k in ('entity_id','deny_actions','scope','reason','active','valid_from','expires_at')): return prior
     with store.db:
         put(store,'memory_constraints',value); change(store,at.isoformat(),'explicit_constraint',value)
     return value
@@ -157,14 +176,21 @@ def weekly_summary(store,config,asof):
                 cells=[dict(day_type=k[0],slot=k[1],risk=k[2],**v) for k,v in sorted(groups.items())])
 
 
-def proposal(store,value,at):
-    initialize(store)
-    if set(value)!={'kind','feature','value','rationale'} or value['kind']!='context_split' or value['feature'] not in {'weekday','outdoor','slot'}:
+def proposal_value(value,at):
+    """Validate a hypothesis before opening a memory transaction."""
+    if (not isinstance(value,dict) or set(value)!={'kind','feature','value','rationale'} or
+            value['kind']!='context_split' or not isinstance(value['feature'],str) or
+            value['feature'] not in {'weekday','outdoor','slot'}):
         raise ValueError('Only typed weekday/outdoor/slot context-split hypotheses are accepted')
     bounds={'weekday':(0,6),'outdoor':(-60,60),'slot':(0,47)}; low,high=bounds[value['feature']]
     if type(value['value']) is not int or not low<=value['value']<=high: raise ValueError('Invalid proposed feature value')
     if not isinstance(value['rationale'],str) or len(value['rationale'])>1000: raise ValueError('Invalid rationale')
-    p=dict(value,id=identity(value),status='shadow',created_at=at.isoformat(),trust_level=1)
+    return dict(value,id=identity(value),status='shadow',created_at=at.isoformat(),trust_level=1)
+
+
+def proposal(store,value,at):
+    initialize(store)
+    p=proposal_value(value,at)
     with store.db: put(store,'memory_proposals',p)
     return p
 
@@ -212,7 +238,7 @@ def retain(store,asof):
     cutoff=asof-timedelta(days=30); groups=defaultdict(list)
     old=[r for r in store.events() if dt(r['occurred_at'])<cutoff and r['raw_json']!='{}']
     for r in old:
-        if r['role'] in {'temperature','power','energy','light','co2'}:
+        if r['role'] in {'temperature','humidity','power','energy','light','co2'}:
             bucket=dt(r['occurred_at']).replace(second=0,microsecond=0); bucket-=timedelta(minutes=bucket.minute%15)
             groups[(r['entity_id'],bucket.isoformat())].append(r)
     for (entity,bucket),rows in groups.items():
@@ -248,7 +274,9 @@ def write_understanding(store,config,asof,directory,import_edits=True):
             if value.get('active',True) is False:
                 current=store.db.execute('SELECT body FROM memory_constraints WHERE id=?',(value.get('id'),)).fetchone()
                 if current: put(store,'memory_constraints',dict(json.loads(current[0]),active=False))
-            else: constraint(store,config,value['entity_id'],value['deny_actions'],value['scope'],value['reason'],'app',asof)
+            else:
+                constraint(store,config,value['entity_id'],value['deny_actions'],value['scope'],value['reason'],'app',asof,
+                           valid_from=value.get('valid_from'),expires_at=value.get('expires_at'))
     for room in sorted({s['room'] for s in config['entities'].values()}):
         name=identity(room); path=directory/'rooms'/f'{name}.md'
         if not path.exists(): path.write_text(f'# {room}\n\nEditable household notes.\n',encoding='utf-8')
@@ -263,7 +291,9 @@ def write_understanding(store,config,asof,directory,import_edits=True):
     qs=['# Questions and archive','']
     for q in objects(store,'memory_questions'): qs.append(f"- [{q['status']}] {q['text']} Count: {q.get('occurrences',0)}. {canonical(q.get('explanation',{}))}")
     (directory/'questions.md').write_text('\n'.join(qs)+'\n',encoding='utf-8')
-    for filename,table in (('constraints.yaml','memory_constraints'),('models.yaml','memory_models'),('proposals.yaml','memory_proposals')):
+    for filename,table in (('constraints.yaml','memory_constraints'),('models.yaml','memory_models'),
+                           ('proposals.yaml','memory_proposals'),('preferences.yaml','memory_preferences'),
+                           ('exclusions.yaml','memory_exclusions')):
         (directory/filename).write_text(yaml.safe_dump(objects(store,table),allow_unicode=True,sort_keys=False),encoding='utf-8')
     data=snapshot(store,config,asof); date=asof.astimezone(ZoneInfo(config.get('timezone','Asia/Shanghai'))).date().isoformat()
     (directory/'journal'/f'{date}.json').write_text(json.dumps(data,indent=2,ensure_ascii=False),encoding='utf-8')

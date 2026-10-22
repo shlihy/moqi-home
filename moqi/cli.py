@@ -20,6 +20,8 @@ def main():
     commands.add_parser('memory-status')
     commands.add_parser('memory-history')
     commands.add_parser('weekly-summary')
+    commands.add_parser('reflect-deepseek',help='Background evidence-only hypotheses; no device commands')
+    commands.add_parser('llm-cost',help='Measured cloud tokens, cache hits and budget reservations')
     commands.add_parser('decide')
     undo = commands.add_parser('memory-rollback')
     undo.add_argument('revision')
@@ -52,11 +54,20 @@ def main():
     if not config.get("site") or not config.get("entities"):
         parser.error("Configure site and a nonempty entities allowlist")
     for spec in config["entities"].values():
-        if spec.get("role") not in {"motion", "contact", "leak", "actuator", "power", "energy", "temperature", "presence", "light", "co2", "sleep"} or not spec.get("room"):
+        from .api import ROLES
+        if spec.get("role") not in ROLES or not spec.get("room"):
             parser.error("Each entity needs a supported role and room")
     store = Store(config["database"])
     try:
-        if args.command in {'memory-status','memory-history','memory-rollback','constraint','weekly-summary','hypothesis','decide'}:
+        if args.command == 'llm-cost':
+            from .llm_cost import report
+            print(json.dumps(report(store,config,datetime.now(timezone.utc)),indent=2,ensure_ascii=False))
+        elif args.command == 'reflect-deepseek':
+            from .reflection import DeepSeek,reflect as deepseek_reflect
+            result=deepseek_reflect(store,config,datetime.now(timezone.utc),
+                DeepSeek(model=os.environ.get('DEEPSEEK_MODEL','deepseek-flash')))
+            print(json.dumps(result,indent=2,ensure_ascii=False))
+        elif args.command in {'memory-status','memory-history','memory-rollback','constraint','weekly-summary','hypothesis','decide'}:
             from .memory_store import history,rollback,commit
             from .understanding import constraint,weekly_summary,proposal,write_understanding
             from .decision import decide

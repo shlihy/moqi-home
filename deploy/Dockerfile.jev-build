@@ -1,0 +1,10 @@
+# Build and run only on an authorized Linux model-build server.
+FROM python:3.13-slim-bookworm@sha256:a881a81282cca8c57f97014867fa651def1b3799030cc6b1cff45ed55ba8ef36
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends git libgomp1 && rm -rf /var/lib/apt/lists/*
+COPY requirements/jev-server-build.lock.txt ./requirements/
+RUN pip install --no-cache-dir --require-hashes -r requirements/jev-server-build.lock.txt
+RUN pip install --no-cache-dir --no-deps 'edgejev @ git+https://github.com/yzfly/edgejev.git@dce469472e0e6eea396256e9bf866082dcb9490b'
+COPY moqi ./moqi
+COPY tools/build_jev.py ./tools/
+CMD ["python", "-m", "tools.build_jev", "--source", "models/laya-source", "--output", "models/jev-int8"]

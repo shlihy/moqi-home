@@ -5,8 +5,9 @@ from dataclasses import asdict,dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from .contexts import number
-from .memory import predict
+from .memory import predict, candidates
 from .memory_store import objects
+from .constraint_scopes import applies as constraint_applies
 
 
 @dataclass(frozen=True)
@@ -38,27 +39,34 @@ def explain(h):
             f"trust {h['trust_level']}, risk {h['risk']}; context {h['context']}.")
 
 
-def decide(store,config,at):
+def announcement_required(store,habit):
+    if habit['risk']=='high':
+        return True
+    prior=store.db.execute("SELECT 1 FROM execution_ledger WHERE habit_id=? AND status='acknowledged' LIMIT 1",(habit['id'],)).fetchone()
+    return habit['trust_level']>=2 and prior is None
+
+
+def decide(store,config,at,activity=None,*,record_forecasts=True):
     from .memory_store import identity
     result=[]
-    night=at.astimezone(ZoneInfo(config.get('timezone','Asia/Shanghai'))).hour in {23,0,1,2,3,4,5,6}
     constraints=objects(store,'memory_constraints')
-    for h in predict(store,config,at):
+    for h in (predict(store,config,at) if record_forecasts else candidates(store,config,at)):
         threshold={'low':.7,'medium':.85,'high':.95}.get(h['risk'])
         if h['property']=='temperature': action,value='set_temperature',number(h['target'])
         elif h['target'] in {'on','off'}: action,value='turn_'+h['target'],None
         else: action,value='set_hvac_mode',h['target']
-        denied=any(c.get('active',True) and c['entity_id']==h['entity_id'] and action in c['deny_actions'] and
-                   (c['scope']=='always' or night) for c in constraints)
+        denied=any(constraint_applies(c,h['entity_id'],action,at,config) for c in constraints)
         reason='constraint' if denied else 'unclassified_or_prohibited' if threshold is None else (
             'trust_not_earned' if h['trust_level']<2 else 'risk_threshold' if h['probability']<threshold else 'safety_review_required')
-        item=dict(habit_id=h['id'],status='shadow',reason=reason,explanation=explain(h),proposal=None)
+        item=dict(habit_id=h['id'],entity_id=h['entity_id'],property=h['property'],target=h['target'],
+                  probability=h['probability'],status='shadow',reason=reason,explanation=explain(h),proposal=None)
         if reason=='safety_review_required':
             p=Proposal(identity([h['id'],at.isoformat()]),h['entity_id'],action,value,h['id'],at.isoformat(),
-                       h['probability'],h['risk'],h['risk']=='high' or h['trust_level']==2)
+                       h['probability'],h['risk'],announcement_required(store,h))
             item['proposal']=asdict(p)
         result.append(item)
-    return result
+    from .preferences import apply_to_shadow
+    return apply_to_shadow(result,store,config,at,activity)
 
 
 def parse_correction(text,config):

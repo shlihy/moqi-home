@@ -6,9 +6,20 @@
 
 Moqi records what a home can actually observe, learns contextual habits from verified human actions, and keeps the evidence behind its understanding inspectable. A resident can correct a habit, limit an action, or restore an earlier understanding without erasing what happened.
 
-**Initial developer preview, pre-1.0.** Hardware integration and real household evaluation are pending. No device-execution API is enabled. Model accuracy, energy savings and ITX latency have not been demonstrated. License selection is pending; no open-source license grant is included yet.
+**Software preparation, pre-1.0.** The integrated runtime defaults to shadow mode. HA owns device selection and the final dispatch boundary; hardware integration and real household evaluation remain pending. Model accuracy, energy savings and ITX latency have not been demonstrated. License selection is pending; no open-source license grant is included yet.
 
-## Try a home that learns
+Daily learning comes from behavior. Deterministic code handles numeric/time decisions first; optional local EdgeJev handles unresolved supported language. DeepSeek proposes background updates within a US$1 monthly estimated budget. Optional household interaction is voice, with complete silence from 23:00 to 07:00.
+
+## Prepare the software before hardware
+
+```bash
+python -m pip install -e .
+python -m moqi.scenarios --directory data/software-replay-001
+```
+
+This runs chronological, synthetic behavior scenarios without a model, cloud, HA or audio device. Counts and trust are computed from the event streams. See the [acceptance ledger](docs/jev-memory-acceptance.md), [software boundaries](docs/software-preparation.md), [Ubuntu steps](docs/ubuntu-software-install.md) and [server model/audio setup](docs/model-and-audio-setup.md). Source bundles do not include HA images or model weights.
+
+## Developer playground
 
 ```bash
 python -m pip install -e .
@@ -27,9 +38,10 @@ Observe several days of turning on a dining lamp, skip the routine, add an unkno
 | Structured memory | SQLite events, episodes, contextual habits, evidence, questions and world models |
 | Learning | Exposure-based forgetting, dormancy, shadow feedback, undo/correction feedback and earned trust |
 | Understanding | Editable local Markdown/YAML, dedicated Git history and memory-only rollback |
-| Language | Bounded correction rules; optional local EdgeJev adapter and real-model acceptance harness |
-| Safety | Independent deterministic reviewer; no physical execution permission |
-| Speech policy | Persistent occupancy/nighttime/daily-budget checks; audio pipeline not connected |
+| Language | Code-first interpretation; bounded local EdgeJev context; versioned policy validation/shadow/rollback |
+| Background | Local daily journal/thermal work; deidentified DeepSeek summaries, token/cache accounting and persistent budgets |
+| Safety | Independent reviewer, HA-owned scope, reserved command IDs and observed-state reconciliation; shadow by default |
+| Speech | In-memory wake/VAD/ASR/TTS adapters, spoken confirmation, occupancy/nighttime/budget checks; real audio unverified |
 
 Four verified occurrences can seed a candidate, but observation is not execution approval. Unknown actuator changes remain unknown. Motion stopping is not proof of an empty room. Language-model confidence does not override safety.
 
@@ -61,11 +73,11 @@ with HomeMemory(config, "data/example.sqlite3") as memory:
 
 One example does not establish a habit. Use a fresh database for demos. Real adapters must verify attribution and coverage; the framework cannot independently prove contributor labels.
 
-Non-Python adapters can use the [versioned JSON format](examples/observation.json) and `Observation.from_dict`. Home Assistant is the included read-only WebSocket adapter. Device contributors can start with contract tests and later attach redacted hardware evidence.
+Non-Python adapters can use the [versioned JSON format](examples/observation.json) and `Observation.from_dict`. HA events remain read-only observations; the separate custom integration owns selected-device dispatch. Device contributors can start with contract tests and later attach redacted hardware evidence.
 
 ## EdgeJev is optional
 
-Moqi uses [EdgeJev](https://github.com/yzfly/edgejev) for typed language interpretation, not as the numerical/time/safety controller. Model-only corrections require explicit acceptance until home-domain calibration. Missing runtime or model files produce explicit blocked results. The browser uses rules and does not pretend to run EdgeJev.
+Moqi uses [EdgeJev](https://github.com/yzfly/edgejev) for typed language interpretation. Numerical/time/safety decisions stay in code. Model-only corrections require spoken confirmation; ordinary habit learning requires no teaching or webpage approval. Missing runtime or model files produce explicit blocked results. The browser uses rules and does not pretend to run EdgeJev.
 
 With the runtime installed and a local model directory:
 

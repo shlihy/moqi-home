@@ -79,6 +79,22 @@ class PlanMemoryTests(unittest.TestCase):
         self.assertEqual(woke['status'],'active')
         self.assertAlmostEqual(woke['alpha'],.9*h['alpha']+1)
 
+    def test_accepted_automation_is_a_context_exposure_without_fabricating_a_human_action(self):
+        h=self.train()
+        later=AT+timedelta(days=31)
+        self.add(later,before=None,after='off')
+        register_execution(self.store,'accepted-daily-routine','switch.lamp','on','off',later+timedelta(seconds=1),h['id'])
+        self.add(later+timedelta(seconds=2),before='off',after='on')
+        self.interval(later,later+timedelta(minutes=16))
+        consolidate(self.store,self.config,later+timedelta(minutes=17))
+        updated=next(value for value in objects(self.store,'memory_habits') if value['id']==h['id'])
+        self.assertEqual(updated['status'],'active')
+        self.assertGreaterEqual(updated['last_exposed'],later.isoformat())
+        current=[value for value in objects(self.store,'memory_evidence') if value['habit_id']==h['id'] and
+                 value.get('channel')=='habit' and value.get('at','')>=later.isoformat()]
+        self.assertTrue(current)
+        self.assertTrue(all(value['alpha']==0 and value['beta']==0 for value in current))
+
     def test_annotation_withdrawal_removes_positive_evidence(self):
         h=self.train()
         keys=[r['event_key'] for r in self.store.events() if r['attributed_source']=='human']

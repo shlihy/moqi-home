@@ -1,11 +1,14 @@
 .venv/
+.venv-jev/
 __pycache__/
 *.egg-info/
 data/
 .env
+deploy/runtime.env
 config.local.json
+audio.local.json
 safety-policy.local.json
-models/
+/models/
 deploy/ha-config/
 
 transfer/

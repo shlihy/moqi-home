@@ -11,10 +11,13 @@ requires-python = ">=3.11"
 dependencies = ["websockets>=15,<18", "tzdata>=2025.2", "PyYAML>=6,<7"]
 
 [project.optional-dependencies]
-voice = ["edgejev"]
+voice = ["edgejev @ git+https://github.com/yzfly/edgejev.git@dce469472e0e6eea396256e9bf866082dcb9490b"]
 
 [project.scripts]
 moqi = "moqi.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["moqi*"]
+
+[tool.setuptools.package-data]
+moqi = ["web/*.html"]

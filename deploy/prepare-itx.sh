@@ -10,11 +10,7 @@ fi
 mkdir -p data
 if [ ! -e config.local.json ]; then
   cp config.example.json config.local.json
-  printf 'Created config.local.json. Replace sample entity IDs after discovery.\n'
-fi
-if [ ! -e safety-policy.local.json ]; then
-  cp safety-policy.example.json safety-policy.local.json
-  printf 'Created safety-policy.local.json with an empty device allowlist.\n'
+  printf 'Created config.local.json. The runtime reads entity selection and areas from HA.\n'
 fi
 if ! command -v docker >/dev/null 2>&1; then
   printf 'Install Docker Engine and Compose first: https://docs.docker.com/engine/install/ubuntu/\n' >&2
@@ -22,4 +18,4 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 docker compose version
 docker compose -f deploy/compose.yaml --profile tools config --quiet
-printf '\nPreparation complete. Continue with START_HERE.md.\n'
+printf '\nPreparation complete. Continue with docs/ubuntu-software-install.md, step 2.\n'

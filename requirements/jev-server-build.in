@@ -1,0 +1,13 @@
+# Linux x86_64 / Python 3.13 build host only. Never install this on the ITX runtime.
+-r itx-runtime.in
+torch==2.14.1
+transformers==5.20.2
+safetensors==0.8.0
+laya==0.4.13
+onnx==1.23.2
+onnx-ir==1.1.0
+onnxscript==0.7.2
+onnxconverter-common==1.16.0
+peft==0.21.2
+psutil==7.2.2
+setuptools==84.2.1

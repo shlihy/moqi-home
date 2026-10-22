@@ -54,7 +54,7 @@ class Store:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
         schema_version = self.db.execute('PRAGMA user_version').fetchone()[0]
-        if schema_version > 1:
+        if schema_version > 3:
             self.db.close()
             raise RuntimeError('Database schema is newer than this version of Moqi; use a compatible release')
         self.db.execute("PRAGMA journal_mode=WAL")
@@ -98,7 +98,7 @@ class Store:
         ''')
         self.db.commit()
 
-        self.db.execute('PRAGMA user_version=1')
+        self.db.execute('PRAGMA user_version=3')
 
     def add(self, row):
         if row is None:
@@ -131,23 +131,26 @@ class Store:
                             (datetime.now(timezone.utc).isoformat(), session))
 
     def annotate(self, key, source, reason):
+        with self.db:
+            self._annotate(key,source,reason,datetime.now(timezone.utc).isoformat())
+
+    def _annotate(self,key,source,reason,timestamp):
+        """Write inside the caller's transaction, including annotation audit history."""
         row = self.db.execute('SELECT role,kind FROM events WHERE event_key=?', (key,)).fetchone()
         if not row or row[0] != 'actuator' or row[1] not in {'transition', 'attributes'}:
             raise ValueError('Only an existing actuator change can be attributed')
         if source not in {'human', 'device', 'unknown'} or not reason.strip():
             raise ValueError('Use human/device/unknown and a nonempty evidence note')
-        with self.db:
-            timestamp = datetime.now(timezone.utc).isoformat()
-            self.db.execute('INSERT OR REPLACE INTO annotations VALUES (?,?,?,?)',
-                            (key, source, reason, timestamp))
-            self.db.execute('INSERT INTO annotation_history(event_key,source,reason,annotated_at) VALUES (?,?,?,?)',
-                            (key, source, reason, timestamp))
-            if source=='human':
-                entity,occurred=self.db.execute('SELECT entity_id,occurred_at FROM events WHERE event_key=?',(key,)).fetchone()
-                until=(datetime.fromisoformat(occurred)+timedelta(minutes=90)).isoformat()
-                current=self.db.execute('SELECT until_at FROM human_leases WHERE entity_id=?',(entity,)).fetchone()
-                if not current or current[0]<until:
-                    self.db.execute('INSERT OR REPLACE INTO human_leases VALUES (?,?,?)',(entity,until,'verified human operation'))
+        self.db.execute('INSERT OR REPLACE INTO annotations VALUES (?,?,?,?)',
+                        (key, source, reason, timestamp))
+        self.db.execute('INSERT INTO annotation_history(event_key,source,reason,annotated_at) VALUES (?,?,?,?)',
+                        (key, source, reason, timestamp))
+        if source=='human':
+            entity,occurred=self.db.execute('SELECT entity_id,occurred_at FROM events WHERE event_key=?',(key,)).fetchone()
+            until=(datetime.fromisoformat(occurred)+timedelta(minutes=90)).isoformat()
+            current=self.db.execute('SELECT until_at FROM human_leases WHERE entity_id=?',(entity,)).fetchone()
+            if not current or current[0]<until:
+                self.db.execute('INSERT OR REPLACE INTO human_leases VALUES (?,?,?)',(entity,until,'verified human operation'))
 
     def events(self):
         self.db.row_factory = sqlite3.Row

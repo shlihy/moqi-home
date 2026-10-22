@@ -1,0 +1,75 @@
+{
+  "schema": "moqi.software-checks.v1",
+  "passed": true,
+  "tests": 190,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "python": "3.13.9",
+  "platform": "Windows development; fixtures only",
+  "real_model_inference": false,
+  "paid_api_calls": 0,
+  "live_ha": false,
+  "audio_devices_opened": false,
+  "external_gates": [
+    "real JEV and frozen model evaluation",
+    "real DeepSeek usage and improvement",
+    "microphone/speaker and audio response timings",
+    "actual HA installation and attribution",
+    "ITX coexistence, offline operation and field outcomes"
+  ],
+  "final_targeted_checks": {
+    "modules": [
+      "tests.test_ha_async_boundary",
+      "tests.test_execution"
+    ],
+    "tests": 14,
+    "passed": true,
+    "elapsed_seconds": 7.616,
+    "full_suite_repeated": false
+  },
+  "playground": {
+    "runtime": "Pyodide 314.0.7",
+    "python_sqlite_commands": 8,
+    "passed": true,
+    "javascript_and_embedded_hashes": "passed",
+    "actual_browser_interaction": "open"
+  },
+  "static_source": {
+    "source_files": 139,
+    "python_parsed": 80,
+    "json_parsed": 10,
+    "yaml": "passed",
+    "markdown_links": "passed",
+    "shell_syntax": "passed",
+    "compose_cli_config": "passed",
+    "itx_runtime_has_torch": false,
+    "known_private_patterns_found": 0
+  },
+  "source_audit": {
+    "schema": "moqi.source-audit.v1",
+    "source_files": 139,
+    "markdown_links": "passed",
+    "baseline_comparison": {
+      "absent_from_partial_baseline": 101,
+      "changed": 19,
+      "unchanged": 19
+    },
+    "baseline_scope": "partial snapshot; absent does not mean newly created",
+    "no_publish": true
+  },
+  "repository_verification": {
+    "date": "2026-10-22",
+    "tests": 191,
+    "passed": true,
+    "elapsed_seconds": 45.135,
+    "scope": "exported repository, local fixtures only",
+    "real_model_inference": false,
+    "paid_api_calls": 0,
+    "live_ha": false,
+    "audio_devices_opened": false,
+    "playground_build": "passed",
+    "playground_javascript_and_embedded_hashes": "passed",
+    "hosted_ci": "not yet verified"
+  }
+}

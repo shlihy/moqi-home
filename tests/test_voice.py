@@ -75,7 +75,7 @@ class VoiceContractTests(unittest.TestCase):
 
     def test_missing_model_blocks_explicitly(self):
         with tempfile.TemporaryDirectory() as path:
-            with self.assertRaisesRegex(RuntimeError, 'missing local artifact model.onnx'):
+            with self.assertRaisesRegex(RuntimeError, 'missing local artifact edgejev.json'):
                 LocalCorrectionParser(CONFIG, model_path=path)
 
     def test_temporary_qualifiers_and_questions_do_not_become_permanent_rules(self):

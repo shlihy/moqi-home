@@ -1,7 +1,11 @@
-"""§7 local text-to-typed-correction adapter. Audio is supplied by the future §8 chain."""
+"""Legacy developer text adapter; retains existing playground/benchmark contracts.
+
+The household voice path uses conversation.VoiceConversation and the code-first
+MemoryInterpreter. Its model confirmations are spoken, never App clicks.
+"""
 import math
-from pathlib import Path
 from .decision import parse_correction
+from .jev_runtime import load_agent
 
 
 class LocalCorrectionParser:
@@ -9,13 +13,7 @@ class LocalCorrectionParser:
         self.config=config
         self.agent=agent
         if model_path is not None:
-            path=Path(model_path)
-            for name in ('model.onnx','tokenizer.json','edgejev.json'):
-                if not (path/name).is_file(): raise RuntimeError('EdgeJev blocked: missing local artifact '+name)
-            try: from edgejev import Agent
-            except ImportError as exc: raise RuntimeError('EdgeJev blocked: optional edgejev runtime is not installed') from exc
-            # Local Agent API documented at https://github.com/yzfly/edgejev .
-            self.agent=Agent(str(path))
+            self.agent=load_agent(model_path)
 
     def parse(self,text):
         rule=parse_correction(text,self.config)

@@ -42,7 +42,7 @@ The original runtime and model build instructions are at https://github.com/yzfl
 
 ## Acceptance status
 
-CPython tests cover all synthetic scenarios, feedback, absence of context and rollback. The generated page contains real engine outputs and both main/worker JavaScript were syntax-checked. Full browser rendering and live WebAssembly acceptance remain release gates until verified on a working browser runtime. This development host's Windows socket/CSPRNG errors block the normal local-server and Node/Pyodide acceptance runs; this is not evidence that the browser implementation passed or failed.
+CPython tests cover all synthetic scenarios, feedback, absence of context and rollback. The generated page contains real engine outputs and both main/worker JavaScript were syntax-checked. On 2026-10-22, eight command classes passed with actual Python and SQLite under cached Pyodide 314.0.7 in Node. Full browser rendering, keyboard use, small screens and CDN failure handling remain separate acceptance gates.
 
 `tools/check_wasm.mjs` runs the same commands under the official Pyodide runtime in a normal Node environment, when a local full runtime distribution and its tzdata wheel are available:
 

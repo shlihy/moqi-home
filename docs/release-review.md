@@ -1,5 +1,7 @@
 # Personal repository release review
 
+Updated 2026-10-22 for the software-preparation milestone. The detailed scope and open field gates are recorded in the [acceptance ledger](jev-memory-acceptance.md).
+
 The repository is **moqi-home**, intended for the owner's personal GitHub account. Its initial scope is a developer preview. Publication of the source does not imply completion of the acceptance checks below.
 
 The agreed audience is smart-home developers. The first playground's main story is a synthetic household forming habits, receiving corrections, losing confidence through covered missed opportunities, becoming dormant without context, and restoring earlier understanding. Hardware contributors can connect observations through a versioned contract before collecting real household data.
@@ -16,18 +18,18 @@ The agreed audience is smart-home developers. The first playground's main story 
 
 | Check | Current evidence |
 |---|---|
-| Core and scenario suite | 103 local CPython tests pass; exported source tested independently |
-| Playground build | Twelve core source files and ten engine-generated states embedded |
+| Core and scenario suite | 190 local CPython checks passed, followed by 14 targeted checks including a later permission-revocation case; four complete synthetic behavior scenarios passed |
+| Playground build | Nineteen core source files and ten engine-generated states embedded |
 | JavaScript | Main/worker syntax and embedded source hashes checked |
-| Python distribution | Pure-Python wheel built; separate import smoke check |
+| Python distribution | Wheel build is configured in CI; this publication checks the exported source and CLI contracts |
 | Privacy boundaries | Explicit export selection and known credential/path scan |
-| Hosted CI | Configuration prepared; no GitHub run yet |
-| Live WebAssembly and browser interaction | Pending; local Windows runtime failures prevent acceptance here |
+| Hosted CI | Configuration prepared; inspect Actions after this commit is pushed; no current hosted result is claimed here |
+| Live WebAssembly and browser interaction | Eight command classes passed with actual Python + SQLite under Pyodide 314.0.7; real browser interaction remains pending |
 | Hardware, EdgeJev model and audio | Pending; no physical execution enabled |
 | License | Pending owner choice; no final license grant included |
 
-The owner has chosen to publish this initial source preview and complete remaining checks afterward. License selection, live browser/WASM acceptance, hosted CI results and static playground hosting remain follow-up work. They are required before claiming a licensed open-source release or an accepted live demonstration. Repository publication alone is not evidence that any of these checks passed.
+The owner has authorized publication of the software-preparation changes. License selection, browser interaction, hosted CI results and static playground hosting remain follow-up work. They are required before claiming a licensed open-source release or an accepted live demonstration. Repository publication alone is not evidence that any of these checks passed. Cloud requests, real model inference and physical execution were not used for the local checks.
 
 ## Hardware follow-up
 
-Real household acceptance remains separate from the synthetic demo: verify the HA/gateway connection, device state reporting, attribution, observation coverage, load classification and metering. Energy savings, model accuracy and ITX latency require measured evidence. The original application's mandatory announcement requirement conflicts with nighttime silence and speech budgets; resolve that policy before enabling physical execution.
+Real household acceptance remains separate from the synthetic demo: verify the HA/gateway connection, device state reporting, attribution, observation coverage, load classification and metering. Energy savings, model accuracy and ITX latency require measured evidence. A required announcement that cannot satisfy occupancy, nighttime silence or speech budgets prevents dispatch; it is not silently omitted. Execution remains off by default.

@@ -62,6 +62,15 @@ class SpeechBudgetTests(unittest.TestCase):
         self.assertEqual(self.call(request_id='two', kind='question', user_engaged=True)['reason'], 'daily_question_budget')
         self.assertTrue(self.call(request_id='answer', kind='explanation', user_engaged=True)['allowed'])
 
+    def test_user_confirmation_is_not_a_proactive_learning_question(self):
+        self.assertTrue(self.call(kind='question',user_engaged=True)['allowed'])
+        self.assertEqual(self.call(request_id='unprompted',kind='confirmation')['reason'],'user_conversation_required')
+        self.assertTrue(self.call(request_id='confirm',kind='confirmation',user_engaged=True)['allowed'])
+        self.assertTrue(self.call(request_id='clarify',kind='clarification',user_engaged=True)['allowed'])
+        night = self.at.replace(hour=15)
+        self.assertEqual(self.call(request_id='night',at=night,occupancy_at=night,
+            kind='confirmation',user_engaged=True)['reason'],'night_silence')
+
     def test_first_habit_requires_real_first_receipt(self):
         self.assertEqual(self.call(kind='new_habit', habit_id='h')['reason'], 'first_execution_not_verified')
         self.store.db.execute("INSERT INTO execution_ledger(id,habit_id,issued_at,status) VALUES (?,?,?,?)", ('execution','h',self.at.isoformat(),'acknowledged'))

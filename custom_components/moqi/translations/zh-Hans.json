@@ -1,0 +1,7 @@
+{
+  "title": "默契 Moqi",
+  "config": {
+    "step": {"user": {"title": "接入默契", "description": "在 Home Assistant 的实体列表中，使用“默契：允许观察”和“默契：允许控制”标签选择设备。默认关闭自动执行。本集成不会调用云端模型。"}},
+    "abort": {"already_configured": "默契已经配置。"}
+  }
+}

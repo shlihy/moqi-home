@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "verified_metadata_on": "2026-10-22",
+  "archives": [
+    {
+      "name": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2",
+      "bytes": 32654866,
+      "publisher_sha256": null
+    },
+    {
+      "name": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
+      "bytes": 163002883,
+      "publisher_sha256": "7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e"
+    },
+    {
+      "name": "vits-icefall-zh-aishell3.tar.bz2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-icefall-zh-aishell3.tar.bz2",
+      "bytes": 31559701,
+      "publisher_sha256": null
+    }
+  ],
+  "standalone_source": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+  "files": {
+    "kws_encoder": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+    "kws_decoder": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+    "kws_joiner": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx",
+    "kws_tokens": "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01/tokens.txt",
+    "keywords": "keywords.txt",
+    "vad": "silero_vad.onnx",
+    "asr": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17/model.int8.onnx",
+    "asr_tokens": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17/tokens.txt",
+    "tts": "vits-icefall-zh-aishell3/model.onnx",
+    "tts_tokens": "vits-icefall-zh-aishell3/tokens.txt",
+    "tts_lexicon": "vits-icefall-zh-aishell3/lexicon.txt",
+    "tts_phone": "vits-icefall-zh-aishell3/phone.fst",
+    "tts_date": "vits-icefall-zh-aishell3/date.fst",
+    "tts_number": "vits-icefall-zh-aishell3/number.fst"
+  }
+}

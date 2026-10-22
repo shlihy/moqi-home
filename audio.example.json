@@ -1,0 +1,10 @@
+{
+  "room": "REPLACE_WITH_HA_AREA_ID",
+  "timezone": "Asia/Shanghai",
+  "manifest": "models/audio/manifest.json",
+  "wake_phrases": ["默契", "默契默契"],
+  "input_device": null,
+  "output_device": null,
+  "speaker": 21,
+  "speed": 1.0
+}

@@ -81,7 +81,20 @@ class PublicApiTests(unittest.TestCase):
         connection.close()
 
     def test_legacy_database_is_marked_after_compatible_migration(self):
-        self.assertEqual(self.engine.store.db.execute('PRAGMA user_version').fetchone()[0], 1)
+        self.engine.ingest(Observation('switch.lamp',AT,'off'))
+        before = self.engine.store.events()
+        self.engine.close()
+        connection = sqlite3.connect(str(Path(self.temp.name)/'db.sqlite3'))
+        for table in ('memory_preferences','memory_exclusions','correction_requests'):
+            connection.execute('DROP TABLE '+table)
+        connection.execute('PRAGMA user_version=1')
+        connection.commit()
+        connection.close()
+        self.engine = HomeMemory(CONFIG,str(Path(self.temp.name)/'db.sqlite3'))
+        self.assertEqual(self.engine.store.db.execute('PRAGMA user_version').fetchone()[0], 3)
+        self.assertEqual(self.engine.store.events(),before)
+        for table in ('memory_preferences','memory_exclusions','correction_requests'):
+            self.assertEqual(self.engine.store.db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0],0)
 
     def test_versioned_json_adapter_event(self):
         payload = {'schema_version': 1, 'entity_id': 'switch.lamp', 'at': AT.isoformat(),

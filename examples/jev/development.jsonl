@@ -1,0 +1,12 @@
+{"id":"dev-night","family":"direct-night-prohibition","text":"晚上不要自动关餐厅灯","expected":{"kind":"constraint","entity_id":"switch.dining_light","action":"turn_off","scope":"night"}}
+{"id":"dev-tonight","family":"direct-tonight-prohibition","text":"今晚不要自动关餐厅灯","expected":{"kind":"constraint","entity_id":"switch.dining_light","action":"turn_off","scope":"temporary"}}
+{"id":"dev-weekday","family":"direct-workday-prohibition","text":"工作日晚上不要自动关餐厅灯","expected":{"kind":"constraint","entity_id":"switch.dining_light","action":"turn_off","scope":"weekday_night"}}
+{"id":"dev-always","family":"direct-permanent-prohibition","text":"以后不要自动开风扇","expected":{"kind":"constraint","entity_id":"switch.fan","action":"turn_on","scope":"always"}}
+{"id":"dev-preference","family":"direct-activity-comfort","text":"我工作的时候，书房空调设到23°C更舒服","expected":{"kind":"preference","entity_id":"climate.study","activity":"working","value":23.0,"unit":"°C"}}
+{"id":"dev-sleep","family":"direct-sleep-comfort","text":"我睡觉的时候卧室空调设到24°C更舒服","expected":{"kind":"preference","entity_id":"climate.bedroom","activity":"sleeping","value":24.0,"unit":"°C"}}
+{"id":"dev-exception","family":"direct-guest-exception","text":"那天来了客人，那次不是平时的习惯","selected_event":"event-guest","expected":{"kind":"exception","event_key":"event-guest"}}
+{"id":"dev-attribution","family":"direct-automation-attribution","text":"这次不是我开的，是原来的自动化开的","selected_event":"event-automation","expected":{"kind":"attribution","event_key":"event-automation","source":"device"}}
+{"id":"dev-ambiguous","family":"missing-device","text":"不要关那个","expected":{"status":"needs_clarification"}}
+{"id":"dev-no-context","family":"missing-preference-activity","text":"书房空调23°C挺舒服","expected":{"status":"needs_clarification"}}
+{"id":"dev-multiple","family":"multiple-explicit-devices","text":"不要关餐厅灯和风扇","expected":{"status":"needs_clarification"}}
+{"id":"dev-explain","family":"ask-action-reason","text":"为什么关灯？","expected":{"kind":"explain"}}

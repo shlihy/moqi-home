@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_FILES = [
-    'README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', 'pyproject.toml', '.gitignore', '.gitattributes',
+    'README.md', 'README.zh-CN.md', 'CONTRIBUTING.md', 'pyproject.toml', '.gitignore', '.gitattributes','.dockerignore',
     'config.example.json', 'safety-policy.example.json',
     'docs/framework.md', 'docs/playground.md', 'docs/voice-acceptance.md', 'docs/release-review.md',
     'playground/index.template.html', 'examples/adapter.py', 'examples/observation.json',
@@ -19,6 +19,28 @@ PUBLIC_FILES = [
     '.github/workflows/tests.yml', '.github/ISSUE_TEMPLATE/bug.md', '.github/ISSUE_TEMPLATE/device-adapter.md',
     'tools/build_playground.py', 'tools/check_playground.mjs', 'tools/check_wasm.mjs',
     'tools/fetch_pyodide.mjs', 'tools/prepare_repository.py',
+    'moqi/web/local.html', 'tools/build_jev.py', 'requirements/jev-build-lock.txt',
+    'docs/jev-memory-plan.md', 'docs/jev-memory-acceptance.md',
+    'docs/software-preparation.md', 'deploy/runtime.env.example',
+    'audio.example.json','requirements/audio-runtime.txt',
+    'requirements/itx-runtime.in','requirements/itx-runtime.lock.txt',
+    'requirements/itx-audio.in','requirements/itx-audio.lock.txt',
+    'requirements/jev-server-build.in','requirements/jev-server-build.lock.txt',
+    'deploy/Dockerfile.jev-build','deploy/compose.audio.yaml','deploy/compose.live.yaml',
+    'docs/model-and-audio-setup.md','docs/ubuntu-software-install.md',
+    'examples/models/audio-recipe.json','examples/models/keywords.txt',
+    'examples/jev/policy-manifest.example.json','examples/jev/policy-cases.example.jsonl',
+    'tools/export_audio_manifest.py','tools/build_software_bundle.py',
+    'docs/默契-完整方案.md',
+    'docs/archive/jev-manual-workflow-2026-10-22/README.md',
+    'docs/archive/jev-manual-workflow-2026-10-22/plan.md',
+    'docs/archive/jev-manual-workflow-2026-10-22/acceptance.md',
+    'custom_components/moqi/manifest.json','custom_components/moqi/config_flow.py',
+    'custom_components/moqi/strings.json','custom_components/moqi/translations/zh-Hans.json',
+    'custom_components/moqi/control.py','custom_components/moqi/profile.py',
+    'custom_components/moqi/__init__.py','custom_components/moqi/switch.py',
+    'examples/jev/README.md','examples/jev/development.jsonl','examples/jev/holdout.jsonl',
+    'examples/jev/holdout-manifest.json',
 ]
 
 

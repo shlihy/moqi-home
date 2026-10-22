@@ -1,0 +1,7 @@
+{
+  "title": "Moqi",
+  "config": {
+    "step": {"user": {"title": "Connect Moqi", "description": "Select observed and controllable entities using the Moqi labels in Home Assistant. Execution starts disabled. This integration does not call any cloud model."}},
+    "abort": {"already_configured": "Moqi is already configured."}
+  }
+}

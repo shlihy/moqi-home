@@ -15,7 +15,7 @@ from .memory import consolidate, predict, snapshot
 from .memory_store import canonical
 
 ROLES = frozenset({'motion', 'contact', 'leak', 'actuator', 'power', 'energy',
-                   'temperature', 'presence', 'light', 'co2', 'sleep'})
+                   'temperature', 'presence', 'light', 'co2', 'sleep','humidity'})
 
 
 def validate_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -154,6 +154,32 @@ class HomeMemory:
 
     def inspect(self, at: datetime) -> dict[str, Any]:
         return snapshot(self.store, self.config, self._at(at))
+
+    def propose_change(self, text, at, interpreter, *, selected_event=None):
+        from .corrections import preview
+        at = self._at(at)
+        parsed = interpreter.interpret(text, selected_event=selected_event)
+        return preview(self.store,self.config,parsed,text,at)
+
+    def apply_change(self, identifier, at):
+        from .corrections import apply
+        return apply(self.store,self.config,identifier,self._at(at))
+
+    def cancel_change(self, identifier, at):
+        from .corrections import cancel
+        return cancel(self.store,identifier,self._at(at))
+
+    def undo_change(self, identifier, at):
+        from .corrections import undo
+        return undo(self.store,self.config,identifier,self._at(at))
+
+    def change_history(self):
+        from .corrections import history
+        return history(self.store)
+
+    def shadow(self, at, *, activity=None):
+        from .decision import decide
+        return decide(self.store,self.config,self._at(at),activity,record_forecasts=False)
 
     def close(self) -> None:
         self.store.close()

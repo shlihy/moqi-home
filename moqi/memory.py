@@ -31,15 +31,26 @@ def covered(intervals,start,end):
 def eligible(events,intervals,entity,start,end):
     previous = latest(events,entity,start)
     uncertain = any(r['entity_id']==entity and start <= dt(r['occurred_at']) < end and
-        (r['kind'] in {'unavailable','removed'} or r['kind'] in {'transition','attributes'} and
+        (r.get('learning_excluded',False) or r['kind'] in {'unavailable','removed'} or r['kind'] in {'transition','attributes'} and
          r['attributed_source']=='unknown') for r in events)
     return bool(covered(intervals,start,end) and previous and
                 previous['new_state'] not in (None,'unknown','unavailable') and not uncertain)
 
 
-def human_actions(store,asof):
+def excluded_events(store):
+    return {row['event_key'] for row in objects(store,'memory_exclusions') if row.get('active',True)}
+
+
+def learning_events(store):
+    excluded=excluded_events(store)
+    return [dict(row,learning_excluded=row['event_key'] in excluded) for row in store.events()]
+
+
+def human_actions(store,asof,*,include_excluded=False):
     cached={k:json.loads(b) for k,b in store.db.execute('SELECT event_key,body FROM memory_contexts')}
+    excluded=set() if include_excluded else excluded_events(store)
     return [r for r in store.events() if r['attributed_source']=='human' and r['role']=='actuator' and
+            r['event_key'] not in excluded and
             (r['kind']=='transition' or r['kind']=='attributes' and
              cached.get(r['event_key'],{}).get('property',action(r)[0])=='temperature') and
             r['new_state'] not in (None,'unknown','unavailable') and dt(r['occurred_at']) < asof]
@@ -111,11 +122,20 @@ def risk_for(config,entity,prop,at):
 def mine(store,config,asof):
     groups = defaultdict(list)
     for row in spontaneous_actions(store,asof):
+        if config['entities'].get(row['entity_id'],{}).get('room')!=row['room']:
+            continue
         if dt(row['occurred_at']) < asof-timedelta(days=14): continue
         value = event_context(store,row)
         for level,ctx in enumerate(hierarchy(value['features'])):
             groups[canonical([row['entity_id'],value['property'],value['target'],ctx,level])].append(row)
     existing = objects(store,'memory_habits')
+    grouped={identity(json.loads(key)):rows for key,rows in groups.items()}
+    for h in existing:
+        rows=grouped.get(h['family'],[])
+        if h['status']!='drift_dormant' and len(rows)<4:
+            h['occurrences']=len(rows)
+            h['observed_days']=len({dt(r['occurred_at']).astimezone(ZoneInfo(config.get('timezone','Asia/Shanghai'))).date() for r in rows})
+            put(store,'memory_habits',h)
     for key,rows in sorted(groups.items()):
         if len(rows)<4: continue
         entity,prop,target,ctx,level = json.loads(key)
@@ -147,18 +167,22 @@ def evidence(store,h,key,at,**body):
 
 
 def opportunities(store,config,asof):
-    events,actions,intervals = store.events(),spontaneous_actions(store,asof),coverage(store)
+    events,actions,intervals = learning_events(store),spontaneous_actions(store,asof),coverage(store)
     previous=meta(store,'consolidated_at')
     annotation_revision=store.db.execute('SELECT COALESCE(MAX(id),0) FROM annotation_history').fetchone()[0]
     received=meta(store,'input_received_at','')
     late=store.db.execute('SELECT 1 FROM events WHERE received_at>? AND occurred_at<? LIMIT 1',
                          (received,previous or asof.isoformat())).fetchone()
-    changed=annotation_revision!=meta(store,'annotation_revision',-1) or bool(late)
+    eligibility=identity(objects(store,'memory_exclusions'))
+    changed=(annotation_revision!=meta(store,'annotation_revision',-1) or bool(late) or
+             eligibility!=meta(store,'eligibility_fingerprint'))
     context_cache={}
     entity_events=defaultdict(list)
     for r in events: entity_events[r['entity_id']].append(r)
     for h in objects(store,'memory_habits'):
         if h['status']=='drift_dormant': continue
+        if config['entities'].get(h['entity_id'],{}).get('room')!=h['context']['room']:
+            continue
         # Re-evaluate prior trials when attribution changes; an ambiguous window is
         # voided, not frozen as a previous negative/positive observation.
         if changed:
@@ -183,18 +207,18 @@ def opportunities(store,config,asof):
                 continue  # No opportunity to repeat an action whose target is already satisfied.
             execution_overlap=any(e==h['entity_id'] and cursor<dt(t)+timedelta(minutes=10) and dt(t)<stop
                 for e,t in store.db.execute("SELECT entity_id,issued_at FROM execution_ledger WHERE status='acknowledged'"))
-            if not execution_overlap and covered(intervals,cursor,stop) and eligible(entity_events[h['entity_id']],intervals,h['entity_id'],cursor,stop):
+            if covered(intervals,cursor,stop) and eligible(entity_events[h['entity_id']],intervals,h['entity_id'],cursor,stop):
                 cache_key=(cursor,h['context']['room'])
                 if cache_key not in context_cache:
                     context_cache[cache_key]=features(events,config,cursor,h['context']['room'])
                 full = dict(context_cache[cache_key],devices=dict(context_cache[cache_key]['devices']))
                 full['devices'].pop(h['entity_id'],None)
                 if matches(h['context'],full):
-                    found = [r['event_key'] for r in actions if r['entity_id']==h['entity_id'] and
+                    found = [r['event_key'] for r in actions if not execution_overlap and r['entity_id']==h['entity_id'] and
                         cursor <= dt(r['occurred_at']) < stop and
                         (event_context(store,r)['property'],event_context(store,r)['target'])==(h['property'],h['target'])]
                     evidence(store,h,'exposure:'+cursor.isoformat(),cursor.isoformat(),channel='habit',
-                        exposure=True,alpha=len(found),beta=int(not found),events=found)
+                        exposure=True,alpha=len(found),beta=int(not found and not execution_overlap),events=found)
             cursor = stop
         attached = {key for e in objects(store,'memory_evidence') if e['habit_id']==h['id'] and
                     e.get('opportunity',True) and e.get('channel')=='habit' for key in e.get('events',[])}
@@ -209,11 +233,12 @@ def opportunities(store,config,asof):
                 evidence(store,h,'action:'+r['event_key'],r['occurred_at'],channel='habit',exposure=True,
                          alpha=1,beta=0,events=[r['event_key']],opportunity=False)
     set_meta(store,'annotation_revision',annotation_revision)
+    set_meta(store,'eligibility_fingerprint',eligibility)
     set_meta(store,'input_received_at',store.db.execute('SELECT COALESCE(MAX(received_at),\'\') FROM events').fetchone()[0])
 
 
 def reconcile_attribution(store,asof):
-    sources = {r['event_key']:r['attributed_source'] for r in store.events() if dt(r['occurred_at']) < asof}
+    sources = {r['event_key']:r['attributed_source'] for r in human_actions(store,asof)}
     for e in objects(store,'memory_evidence'):
         if e.get('channel')!='habit' or not e.get('events'): continue
         valid = [key for key in e['events'] if sources.get(key)=='human']
@@ -283,32 +308,40 @@ def habits(store,config,asof):
                   key=lambda h:(h['entity_id'],h['specificity'],h['id']))
 
 
-def predict(store,config,at):
+def candidates(store,config,at):
     initialize(store)
     consolidated=meta(store,'consolidated_at')
     if consolidated and at<dt(consolidated):
         raise ValueError('Historical prediction requires an isolated chronological replay database')
     events,chosen=store.events(),{}
     for h in habits(store,config,at):
+        if h['context']['room']!=config['entities'].get(h['entity_id'],{}).get('room'):
+            continue
         current=latest(events,h['entity_id'],at)
         if current and (h['property']=='state' and current['new_state']==h['target'] or
             h['property']=='temperature' and str(attributes(current).get('temperature'))==h['target']): continue
         full=features(events,config,at,h['context']['room']); full['devices'].pop(h['entity_id'],None)
         if matches(h['context'],full): chosen.setdefault((h['entity_id'],h['property'],h['target']),h)
+    return list(chosen.values())
+
+
+def predict(store,config,at):
+    chosen=candidates(store,config,at)
+    events=store.events()
     end=at+timedelta(minutes=15)
     with store.db:
-        for h in chosen.values():
+        for h in chosen:
             if not store.db.execute('SELECT 1 FROM forecasts WHERE entity_id=? AND target=? AND issued_at<=? AND window_end>?',
                                     (h['entity_id'],h['target'],at.isoformat(),at.isoformat())).fetchone():
                 full=features(events,config,at,h['context']['room']); full['devices'].pop(h['entity_id'],None)
                 store.db.execute('INSERT INTO forecasts(entity_id,target,issued_at,window_end,probability,evidence_json) VALUES (?,?,?,?,?,?)',
                     (h['entity_id'],h['target'],at.isoformat(),end.isoformat(),h['probability'],canonical(dict(h,issued_context=full))))
-    return list(chosen.values())
+    return chosen
 
 
 def evaluate(store,asof):
     initialize(store)
-    actions,events,intervals=human_actions(store,asof),store.events(),coverage(store)
+    actions,events,intervals=human_actions(store,asof),learning_events(store),coverage(store)
     cached={key:json.loads(body) for key,body in store.db.execute('SELECT event_key,body FROM memory_contexts')}
     def observed_action(row):
         c=cached.get(row['event_key'])
@@ -341,7 +374,7 @@ def register_execution(store,identifier,entity,target,before,at,habit_id,context
 
 
 def feedback(store,config,asof):
-    events,intervals,humans=store.events(),coverage(store),human_actions(store,asof)
+    events,intervals,humans=store.events(),coverage(store),human_actions(store,asof,include_excluded=True)
     for identifier,entity,target,before,issued,habit_id,prop in store.db.execute(
         "SELECT id,entity_id,target,before_state,issued_at,habit_id,property FROM execution_ledger WHERE status='acknowledged' AND feedback IS NULL").fetchall():
         start,end=dt(issued),dt(issued)+timedelta(minutes=10)
@@ -360,7 +393,13 @@ def feedback(store,config,asof):
             final=latest(events,entity,end)
             reached=bool(final and (final['new_state']==target if prop=='state' else
                 number(attributes(final).get('temperature'))==number(target)))
-            if reached and eligible(events,intervals,entity,start,end):
+            dispatched=store.db.execute('SELECT body FROM execution_dispatch WHERE id=?',(identifier,)).fetchone()
+            announcement=store.db.execute('SELECT status FROM prepared_speech WHERE execution_id=?',(identifier,)).fetchone()
+            missing_announcement=bool(dispatched and json.loads(dispatched[0])['proposal']['announce'] and
+                                      (not announcement or announcement[0]!='playback_attempted'))
+            if missing_announcement:
+                outcome='unscored_announcement_unresolved'
+            elif reached and eligible(events,intervals,entity,start,end):
                 evidence(store,h,'execution:'+identifier,end.isoformat(),channel='acceptance',alpha=.5,beta=0,signal='default_acceptance')
                 outcome='default_acceptance'
             store.db.execute('UPDATE execution_ledger SET feedback=? WHERE id=?',(outcome,identifier))
@@ -379,6 +418,7 @@ def snapshot(store,config,asof):
         unverified_actions=sum(r['role']=='actuator' and r['attributed_source']=='unknown' and r['kind'] in {'transition','attributes'} for r in events),
         habits=habits(store,config,asof),episodes=episodes(store,asof)[-20:],questions=objects(store,'memory_questions'),
         models=objects(store,'memory_models'),constraints=objects(store,'memory_constraints'),revision=meta(store,'revision'),
+        explicit_preferences=objects(store,'memory_preferences'),learning_exceptions=objects(store,'memory_exclusions'),
         changes=[dict(at=a,kind=k,details=json.loads(b)) for a,k,b in store.db.execute('SELECT at,kind,body FROM memory_changes ORDER BY id DESC LIMIT 30')],
         forecasts=[dict(entity_id=e,target=t,issued_at=a,probability=p,outcome=o) for e,t,a,p,o in store.db.execute(
             'SELECT entity_id,target,issued_at,probability,outcome FROM forecasts ORDER BY issued_at DESC LIMIT 50')],

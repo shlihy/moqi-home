@@ -22,6 +22,14 @@ CREATE TABLE IF NOT EXISTS memory_evidence(id TEXT PRIMARY KEY,habit_id TEXT,at 
 CREATE TABLE IF NOT EXISTS memory_questions(id TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS memory_models(id TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS memory_constraints(id TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS memory_preferences(id TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS memory_exclusions(id TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS correction_requests(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,status TEXT NOT NULL,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS voice_sessions(room TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS reflection_summaries(id TEXT PRIMARY KEY,created_at TEXT,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS background_jobs(id TEXT PRIMARY KEY,created_at TEXT,status TEXT,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS execution_decisions(id TEXT PRIMARY KEY,at TEXT NOT NULL,body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS execution_dispatch(id TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS memory_proposals(id TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS memory_contexts(event_key TEXT PRIMARY KEY,body TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS memory_runs(id TEXT PRIMARY KEY,at TEXT,status TEXT,body TEXT NOT NULL);
@@ -36,6 +44,7 @@ CREATE TABLE IF NOT EXISTS speech_reservations(
  kind TEXT NOT NULL,habit_id TEXT,duration_seconds REAL NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS speech_first_habit ON speech_reservations(habit_id)
  WHERE kind='new_habit';
+CREATE TABLE IF NOT EXISTS prepared_speech(id TEXT PRIMARY KEY,execution_id TEXT NOT NULL,status TEXT NOT NULL);
 '''
 
 
@@ -43,19 +52,25 @@ def initialize(store):
     if getattr(store, '_memory_initialized', False):
         return
     store.db.executescript(SCHEMA)
+    from .jev_policy import SCHEMA as POLICY_SCHEMA
+    store.db.executescript(POLICY_SCHEMA)
+    from .llm_cost import SCHEMA as COST_SCHEMA
+    store.db.executescript(COST_SCHEMA)
     store.db.commit()
     store._memory_initialized = True
 
 
 def objects(store, table):
     if table not in {'memory_habits','memory_episodes','memory_evidence','memory_questions',
-                     'memory_models','memory_constraints','memory_proposals','memory_runs'}:
+                     'memory_models','memory_constraints','memory_proposals','memory_runs',
+                     'memory_preferences','memory_exclusions'}:
         raise ValueError('Unsupported memory table')
     return [json.loads(body) for (body,) in store.db.execute(f'SELECT body FROM {table} ORDER BY id')]
 
 
 def put(store, table, value):
-    if table not in {'memory_habits','memory_questions','memory_models','memory_constraints','memory_proposals'}:
+    if table not in {'memory_habits','memory_questions','memory_models','memory_constraints','memory_proposals',
+                     'memory_preferences','memory_exclusions'}:
         raise ValueError('Unsupported memory table')
     store.db.execute(f'INSERT OR REPLACE INTO {table}(id,body) VALUES (?,?)', (value['id'],canonical(value)))
 
@@ -74,8 +89,9 @@ def change(store, at, kind, body):
 
 
 # Inputs, attribution, execution outcomes, leases and privacy retention stay outside rollback.
-VERSIONED = ('memory_habits','memory_evidence','memory_questions','memory_models',
-             'memory_constraints','memory_proposals','memory_episodes')
+LEGACY_VERSIONED = ('memory_habits','memory_evidence','memory_questions','memory_models',
+                    'memory_constraints','memory_proposals','memory_episodes')
+VERSIONED = LEGACY_VERSIONED + ('memory_preferences','memory_exclusions')
 
 
 def state(store):
@@ -89,6 +105,9 @@ def restore_state(store, restored):
     Used by Git rollback and the browser sandbox's session checkpoints. This is
     not a database backup/restore API. Validate the entire snapshot before edits.
     """
+    if isinstance(restored, dict) and set(restored) == set(LEGACY_VERSIONED):
+        # Real v1 Git/sandbox snapshots predate explicit preferences and exceptions.
+        restored = dict(restored, memory_preferences=[], memory_exclusions=[])
     if not isinstance(restored, dict) or set(restored) != set(VERSIONED):
         raise ValueError('Incompatible memory snapshot tables')
     widths = {}
@@ -129,7 +148,8 @@ def commit(store, directory, at, message):
     marker=directory/'.moqi-memory'
     def managed(name):
         return name.startswith(('rooms/','routines/','journal/')) or name in {
-            'memory-state.json','questions.md','constraints.yaml','models.yaml','proposals.yaml','.moqi-memory'}
+            'memory-state.json','questions.md','constraints.yaml','models.yaml','proposals.yaml',
+            'preferences.yaml','exclusions.yaml','.moqi-memory'}
     if not marker.exists():
         tracked=git(directory,'ls-files','-z').split('\0')
         if any(name and not managed(name) for name in tracked):
@@ -139,7 +159,7 @@ def commit(store, directory, at, message):
         raise RuntimeError('L3 commit blocked: unrelated files are staged in the memory repository')
     (directory/'memory-state.json').write_text(canonical(state(store))+'\n',encoding='utf-8')
     git(directory,'add','--','.moqi-memory','memory-state.json','rooms','routines','questions.md',
-        'constraints.yaml','models.yaml','proposals.yaml','journal')
+        'constraints.yaml','models.yaml','proposals.yaml','preferences.yaml','exclusions.yaml','journal')
     if not git(directory,'diff','--cached','--name-only'):
         return git(directory,'rev-parse','HEAD')
     git(directory,'-c','user.name=Moqi local memory','-c','user.email=memory@localhost',
@@ -162,7 +182,7 @@ def rollback(store, directory, revision, at):
         raise ValueError('Use a commit hash from memory-history')
     resolved = git(directory,'rev-parse','--verify',revision+'^{commit}')
     restored = json.loads(git(directory,'show',resolved+':memory-state.json'))
-    if set(restored) != set(VERSIONED):
+    if set(restored) not in (set(VERSIONED),set(LEGACY_VERSIONED)):
         raise ValueError('This commit has no compatible structured memory snapshot')
     # Back up memory only; never create an unexpired second copy of raw HA payloads.
     import sqlite3
@@ -186,7 +206,7 @@ def rollback(store, directory, revision, at):
     # checkout of user code, raw inputs or operational ledgers is involved.
     for name in paths:
         if not (name.startswith(('rooms/','routines/','journal/')) or name in
-                {'questions.md','constraints.yaml','models.yaml','proposals.yaml'}):
+                {'questions.md','constraints.yaml','models.yaml','proposals.yaml','preferences.yaml','exclusions.yaml'}):
             continue
         target=(root/name).resolve()
         if not target.is_relative_to(root): raise ValueError('Unsafe path in memory commit')

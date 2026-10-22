@@ -1,0 +1,5 @@
+# Use after the field gates, together with compose.audio.yaml. Replaces the same
+# runtime container; never launch a second controller beside the shadow service.
+services:
+  moqi-runtime:
+    command: ["python", "-m", "moqi.runtime", "--config", "config.local.json", "--audio-config", "audio.local.json", "--jev-model", "models/jev-int8", "--execute"]

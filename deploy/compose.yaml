@@ -16,7 +16,36 @@ services:
     network_mode: host
     environment:
       HA_TOKEN: ${HA_TOKEN:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
     volumes:
       - ../data:/app/data
       - ../config.local.json:/app/config.local.json:ro
     command: ["python", "-m", "moqi.cli", "run"]
+  moqi-runtime:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    profiles: [software]
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HA_TOKEN: ${HA_TOKEN:-}
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models:ro
+      - ../config.local.json:/app/config.local.json:ro
+    command: ["python", "-m", "moqi.runtime", "--config", "config.local.json"]
+  moqi-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    profiles: [software]
+    restart: unless-stopped
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models:ro
+    command: ["nice", "-n", "10", "python", "-m", "moqi.worker", "--config", "data/runtime-config.json", "--wait-for-config"]

@@ -14,7 +14,9 @@ from moqi.playground import Sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ['__init__.py', 'api.py', 'core.py', 'contexts.py', 'memory.py', 'memory_store.py',
-        'statistics.py', 'understanding.py', 'attribution.py', 'decision.py', 'voice.py', 'playground.py']
+        'statistics.py', 'understanding.py', 'attribution.py', 'decision.py', 'voice.py', 'playground.py',
+        'constraint_scopes.py','preferences.py','jev_runtime.py','corrections.py',
+        'jev_policy.py','jev_questions.py','llm_cost.py']
 
 
 def build(output):

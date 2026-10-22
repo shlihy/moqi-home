@@ -24,7 +24,7 @@ def receive(ws):
     return json.loads(ws.recv(timeout=30))
 
 
-def capture_session(ws, token, config, store, tick=None):
+def capture_session(ws, token, config, store, tick=None,*,poll_interval=30):
     if receive(ws).get("type") != "auth_required":
         raise RuntimeError("Unexpected HA authentication handshake")
     ws.send(json.dumps({"type": "auth", "access_token": token}))
@@ -39,11 +39,17 @@ def capture_session(ws, token, config, store, tick=None):
     live_seen = {}
     try:
         ws.send(json.dumps({"id": 2, "type": "get_states"}))
+        snapshot_id=2
+        pending_snapshot=True
         while True:
             if tick:
-                tick()
+                changed=tick()
+                if changed is True and not pending_snapshot:
+                    snapshot_id+=1
+                    ws.send(json.dumps({'id':snapshot_id,'type':'get_states'}))
+                    pending_snapshot=True
             try:
-                message = ws.recv(timeout=30)
+                message = ws.recv(timeout=poll_interval)
             except TimeoutError:
                 store.session_seen(session)
                 continue
@@ -56,7 +62,8 @@ def capture_session(ws, token, config, store, tick=None):
                 if row:
                     live_seen[row['entity_id']]=row['occurred_at']
                 store.add(row)
-            elif payload.get("id") == 2:
+            elif payload.get("id") == snapshot_id:
+                pending_snapshot=False
                 if not payload.get("success"):
                     raise RuntimeError("HA refused state snapshot")
                 for state in payload["result"]:
@@ -74,7 +81,7 @@ def capture_session(ws, token, config, store, tick=None):
         store.session_end(session)
 
 
-def collect(config, token, store, tick=None):
+def collect(config, token, store, tick=None,*,poll_interval=30):
     from websockets.sync.client import connect
     from websockets.exceptions import ConnectionClosed
     url = websocket_url(config["ha_url"])
@@ -85,7 +92,7 @@ def collect(config, token, store, tick=None):
         try:
             with connect(url, ping_interval=20, ping_timeout=20, open_timeout=20) as ws:
                 log.info("Connected; recording allowlisted entities only")
-                capture_session(ws, token, config, store, tick)
+                capture_session(ws, token, config, store, tick,poll_interval=poll_interval)
             delay = 1
         except PermissionError:
             raise

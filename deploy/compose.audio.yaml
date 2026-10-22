@@ -1,0 +1,11 @@
+# Optional, after actual microphone/speaker and local model acceptance.
+services:
+  moqi-runtime:
+    build:
+      args:
+        MOQI_AUDIO: "1"
+    devices:
+      - /dev/snd:/dev/snd
+    volumes:
+      - ../audio.local.json:/app/audio.local.json:ro
+    command: ["python", "-m", "moqi.runtime", "--config", "config.local.json", "--audio-config", "audio.local.json", "--jev-model", "models/jev-int8"]

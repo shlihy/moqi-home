@@ -5,16 +5,17 @@ import sys
 from datetime import datetime,timedelta,timezone
 from zoneinfo import ZoneInfo
 from .core import Store
-from .contexts import dt,latest,number
-from .decision import Proposal
+from .contexts import attributes,dt,latest,number
+from .decision import Proposal,announcement_required
 from .memory_store import objects
+from .constraint_scopes import applies as constraint_applies
 
 
 def review(store,config,policy,value,at):
     try: p=Proposal(**value)
     except (TypeError,ValueError): return dict(allowed=False,reason='malformed_proposal')
     deny=lambda reason: dict(id=p.id,allowed=False,reason=reason)
-    if abs((at-dt(p.issued_at)).total_seconds())>30: return deny('stale_or_future_proposal')
+    if not 0<=(at-dt(p.issued_at)).total_seconds()<=30: return deny('stale_or_future_proposal')
     spec=config['entities'].get(p.entity_id,{})
     protected=spec.get('protected') or spec.get('category') in {'fridge','router','gas','lock','medical'}
     if protected or p.entity_id.startswith(('lock.','gas.')): return deny('protected_device')
@@ -34,14 +35,19 @@ def review(store,config,policy,value,at):
     night=at.astimezone(ZoneInfo(config.get('timezone','Asia/Shanghai'))).hour in {23,0,1,2,3,4,5,6}
     if night and probability<.95: return deny('night_high_risk_threshold')
     if night and spec.get('category')=='light' and p.action=='turn_on': return deny('night_light_invariant')
-    if night: return deny('night_announcement_conflict')
+    if night and announcement_required(store,h): return deny('night_announcement_conflict')
     for c in objects(store,'memory_constraints'):
-        if c.get('active',True) and c['entity_id']==p.entity_id and p.action in c['deny_actions'] and (c['scope']=='always' or night):
+        if constraint_applies(c,p.entity_id,p.action,at,config):
             return deny('explicit_constraint')
     lease=store.db.execute('SELECT until_at FROM human_leases WHERE entity_id=?',(p.entity_id,)).fetchone()
     if lease and at<dt(lease[0]): return deny('human_lease')
     events=store.events(); state=latest(events,p.entity_id,at)
     if not state or state['new_state'] in {None,'unknown','unavailable'}: return deny('device_unavailable')
+    if ((p.action=='turn_on' and state['new_state']=='on') or
+            (p.action=='turn_off' and state['new_state']=='off') or
+            (p.action=='set_hvac_mode' and state['new_state']==p.value) or
+            (p.action=='set_temperature' and number(attributes(state).get('temperature'))==number(p.value))):
+        return deny('already_at_target')
     if p.action=='set_temperature':
         mode=state['new_state']; bounds=rule.get('temperature',{}).get(mode)
         if not bounds or not bounds[0]<=number(p.value)<=bounds[1]: return deny('temperature_bounds')
@@ -50,6 +56,8 @@ def review(store,config,policy,value,at):
         if not preferences or not any(m['accepted_range'][0]<=number(p.value)<=m['accepted_range'][1] for m in preferences):
             return deny('outside_accepted_temperature_range')
     if spec.get('category')=='hvac':
+        if rule.get('window_context_verified') is False:
+            return deny('window_context_not_verified')
         for entity in rule.get('windows',[]):
             window=latest(events,entity,at)
             if not window or window['new_state'] in {None,'unknown','unavailable'}: return deny('window_unknown')
@@ -60,19 +68,27 @@ def review(store,config,policy,value,at):
         if not presence or not co2 or number(co2['new_state']) is None: return deny('ventilation_context_unknown')
         if presence['new_state']=='on' and number(co2['new_state'])>1200 and (p.action=='turn_off' or
             p.action not in {'turn_on'}): return deny('occupied_high_co2')
-    recent=[(dt(t),s) for t,s in store.db.execute('SELECT issued_at,status FROM execution_ledger WHERE entity_id=?',(p.entity_id,))
+    recent=[(dt(t),s) for t,s in store.db.execute('SELECT issued_at,status FROM execution_ledger WHERE entity_id=? AND id!=?',(p.entity_id,p.id))
             if at-timedelta(hours=1)<=dt(t)<=at and s in {'acknowledged','reserved'}]
     if len(recent)>=min(4,int(rule.get('max_actions_per_hour',4))): return deny('hourly_rate_limit')
     if spec.get('category')=='hvac' and recent and at-max(t for t,s in recent)<timedelta(minutes=max(10,rule.get('min_cycle_minutes',10))):
         return deny('compressor_minimum_cycle')
-    return dict(id=p.id,allowed=True,reason='review_passed_execution_disabled',announce=not night and
-                (h['risk']=='high' or h['trust_level']==2),execution_enabled=False)
+    return dict(id=p.id,allowed=True,reason='review_passed_execution_disabled',
+                announce=announcement_required(store,h),execution_enabled=False)
 
 
 def main():
     parser=argparse.ArgumentParser(description='Independent safety reviewer; JSON lines on stdin, no device control')
+    parser.add_argument('--request',action='store_true',help='One complete runtime review envelope on stdin')
     parser.add_argument('--config',default='config.local.json'); parser.add_argument('--policy',default='safety-policy.local.json')
     args=parser.parse_args()
+    if args.request:
+        from contextlib import closing
+        value=json.load(sys.stdin)
+        with closing(Store(value['config']['database'])) as store:
+            result=review(store,value['config'],value['policy'],value['proposal'],dt(value['at']))
+        print(json.dumps(result),flush=True)
+        return
     config=json.load(open(args.config,encoding='utf-8-sig')); policy=json.load(open(args.policy,encoding='utf-8-sig'))
     store=Store(config['database'])
     try:

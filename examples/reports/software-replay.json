@@ -1,0 +1,117 @@
+{
+  "schema": "moqi.software-replay.v1",
+  "synthetic": true,
+  "model_inference": false,
+  "cloud_calls": 0,
+  "live_ha": false,
+  "audio_playback": false,
+  "teaching_inputs": 0,
+  "web_actions": 0,
+  "scenarios": {
+    "formation_and_undo": {
+      "formation": {
+        "habits": 3,
+        "shadow_hits": 21,
+        "earned_trust": 2,
+        "checks": {
+          "habit_formed": true,
+          "shadow_hits_observed": true,
+          "autonomy_earned": true
+        }
+      },
+      "trust_sequence": [
+        2,
+        2,
+        1
+      ],
+      "undo_beta": [
+        3,
+        3
+      ],
+      "lease_minutes": [
+        90.0,
+        90.0
+      ],
+      "review_reasons": [
+        "human_lease",
+        "unearned_trust"
+      ],
+      "metrics": {
+        "observations": 56,
+        "teaching_inputs": 0,
+        "cloud_calls": 0
+      },
+      "checks": {
+        "habit_formed": true,
+        "shadow_hits_observed": true,
+        "autonomy_earned": true,
+        "beta_three_each_time": true,
+        "lease_90_minutes": true,
+        "two_undos_return_to_shadow": true,
+        "retry_denied": true
+      }
+    },
+    "temperature_micro_adjustment": {
+      "before_values": [
+        22.0,
+        22.0,
+        22.0,
+        22.0
+      ],
+      "after_values": [
+        22.0,
+        22.0,
+        22.0,
+        22.0,
+        23.0
+      ],
+      "signal": "correction",
+      "metrics": {
+        "observations": 9,
+        "teaching_inputs": 0,
+        "cloud_calls": 0
+      },
+      "receipt_source": "synthetic_verified_command_receipt_fixture; no actual climate control",
+      "energy_target": 22.0,
+      "accepted_range": [
+        22.0,
+        23.0
+      ],
+      "checks": {
+        "distribution_updated": true,
+        "micro_adjustment_is_not_undo": true,
+        "no_undo_penalty": true
+      }
+    },
+    "schedule_drift": {
+      "dormant_originals": [
+        "8aaf8f6af862a6e6cefb760a-v1"
+      ],
+      "new_shifted_habits": 3,
+      "split_versions": [
+        "8aaf8f6af862a6e6cefb760a-v2"
+      ],
+      "metrics": {
+        "observations": 70,
+        "teaching_inputs": 0,
+        "cloud_calls": 0
+      },
+      "checks": {
+        "old_versions_preserved": true,
+        "observed_later_time_formed": true,
+        "drift_splits_created": true
+      }
+    },
+    "unknown_attribution": {
+      "metrics": {
+        "observations": 16,
+        "teaching_inputs": 0,
+        "cloud_calls": 0
+      },
+      "checks": {
+        "unknown_never_taught_a_habit": true
+      }
+    }
+  },
+  "passed": true
+}
