@@ -8,6 +8,8 @@ version = "0.5.0.dev0"
 description = "Structured household memory, learning and typed shadow decisions"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = ["websockets>=15,<18", "tzdata>=2025.2", "PyYAML>=6,<7"]
 
 [project.optional-dependencies]

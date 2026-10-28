@@ -1,8 +1,21 @@
 import hashlib
 import json
 import sqlite3
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+
+class _SchemaTarget:
+    """Minimal stand-in for a Store during schema creation.
+
+    memory_store.initialize() only needs the connection and a per-instance
+    flag, so the connection can be prepared before the Store exists.
+    """
+
+    def __init__(self, db):
+        self.db = db
+        self._memory_initialized = False
 
 
 def utc(value):
@@ -52,14 +65,44 @@ def normalize(message, config):
 class Store:
     def __init__(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
-        schema_version = self.db.execute('PRAGMA user_version').fetchone()[0]
+        self.db = self._open(path)
+
+    @staticmethod
+    def _open(path):
+        """Open the database and make sure the schema exists.
+
+        Two workers can open the same file at the same time. SQLite then reports
+        the loser's write attempt as "attempt to write a readonly database"
+        instead of a lock error, so the whole sequence is retried. Every step is
+        idempotent, and the schema is left consistent whichever worker wins.
+        """
+        last = None
+        for attempt in range(8):
+            db = sqlite3.connect(path, timeout=30)
+            try:
+                db.execute('PRAGMA busy_timeout=30000')
+                Store._prepare(db)
+                return db
+            except sqlite3.OperationalError as error:
+                last = error
+                db.close()
+                if 'readonly' not in str(error).lower():
+                    raise
+                time.sleep(0.02 * (attempt + 1))
+            except BaseException:
+                # A rejected schema must not keep the file open.
+                db.close()
+                raise
+        raise last
+
+    @staticmethod
+    def _prepare(db):
+        schema_version = db.execute('PRAGMA user_version').fetchone()[0]
         if schema_version > 3:
-            self.db.close()
             raise RuntimeError('Database schema is newer than this version of Moqi; use a compatible release')
-        self.db.execute("PRAGMA journal_mode=WAL")
-        self.db.execute('PRAGMA secure_delete=ON')
-        self.db.executescript("""
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute('PRAGMA secure_delete=ON')
+        db.executescript("""
             CREATE TABLE IF NOT EXISTS events (
                 event_key TEXT PRIMARY KEY, site TEXT NOT NULL,
                 entity_id TEXT NOT NULL, room TEXT NOT NULL, role TEXT NOT NULL,
@@ -73,14 +116,14 @@ class Store:
                 status TEXT NOT NULL
             );
         """)
-        self.db.commit()
+        db.commit()
 
         from .memory_store import initialize
-        initialize(self)
-        if 'last_seen_at' not in {r[1] for r in self.db.execute('PRAGMA table_info(sessions)')}:
-            self.db.execute('ALTER TABLE sessions ADD COLUMN last_seen_at TEXT')
-            self.db.commit()
-        self.db.executescript('''
+        initialize(_SchemaTarget(db))
+        if 'last_seen_at' not in {r[1] for r in db.execute('PRAGMA table_info(sessions)')}:
+            db.execute('ALTER TABLE sessions ADD COLUMN last_seen_at TEXT')
+            db.commit()
+        db.executescript('''
             CREATE TABLE IF NOT EXISTS annotations (
                 event_key TEXT PRIMARY KEY REFERENCES events(event_key),
                 source TEXT NOT NULL, reason TEXT NOT NULL, annotated_at TEXT NOT NULL
@@ -96,9 +139,9 @@ class Store:
                 UNIQUE(entity_id,target,issued_at)
             );
         ''')
-        self.db.commit()
+        db.commit()
 
-        self.db.execute('PRAGMA user_version=3')
+        db.execute('PRAGMA user_version=3')
 
     def add(self, row):
         if row is None:

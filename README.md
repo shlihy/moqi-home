@@ -6,7 +6,7 @@
 
 Moqi records what a home can actually observe, learns contextual habits from verified human actions, and keeps the evidence behind its understanding inspectable. A resident can correct a habit, limit an action, or restore an earlier understanding without erasing what happened.
 
-**Software preparation, pre-1.0.** The integrated runtime defaults to shadow mode. HA owns device selection and the final dispatch boundary; hardware integration and real household evaluation remain pending. Model accuracy, energy savings and ITX latency have not been demonstrated. License selection is pending; no open-source license grant is included yet.
+**Software preparation, pre-1.0.** The integrated runtime defaults to shadow mode. HA owns device selection and the final dispatch boundary; hardware integration and real household evaluation remain pending. Model accuracy, energy savings and ITX latency have not been demonstrated. Released under the [MIT License](LICENSE).
 
 Daily learning comes from behavior. Deterministic code handles numeric/time decisions first; optional local EdgeJev handles unresolved supported language. DeepSeek proposes background updates within a US$1 monthly estimated budget. Optional household interaction is voice, with complete silence from 23:00 to 07:00.
 

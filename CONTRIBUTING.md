@@ -32,4 +32,4 @@ Live results must come from the Python engine. Recorded fixtures must be generat
 
 ## Attribution and licensing
 
-Identify third-party code, models, datasets and their licenses. Model weights have separate distribution terms. The project license is selected before public release; current review artifacts do not infer permission from an unapproved license draft.
+Identify third-party code, models, datasets and their licenses. Model weights have separate distribution terms. The project is released under the MIT License; model weights and any third-party component keep their own terms and are not covered by this grant.

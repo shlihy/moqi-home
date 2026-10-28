@@ -26,9 +26,9 @@ The agreed audience is smart-home developers. The first playground's main story 
 | Hosted CI | Configuration prepared; inspect Actions after this commit is pushed; no current hosted result is claimed here |
 | Live WebAssembly and browser interaction | Eight command classes passed with actual Python + SQLite under Pyodide 314.0.7; real browser interaction remains pending |
 | Hardware, EdgeJev model and audio | Pending; no physical execution enabled |
-| License | Pending owner choice; no final license grant included |
+| License | MIT License included; model weights and third-party components keep separate terms |
 
-The owner has authorized publication of the software-preparation changes. License selection, browser interaction, hosted CI results and static playground hosting remain follow-up work. They are required before claiming a licensed open-source release or an accepted live demonstration. Repository publication alone is not evidence that any of these checks passed. Cloud requests, real model inference and physical execution were not used for the local checks.
+The owner has authorized publication of the software-preparation changes. The MIT License grant is included with this release. Browser interaction, hosted CI results and static playground hosting remain follow-up work. They are required before claiming an accepted live demonstration. Repository publication alone is not evidence that any of these checks passed. Cloud requests, real model inference and physical execution were not used for the local checks.
 
 ## Hardware follow-up
 
